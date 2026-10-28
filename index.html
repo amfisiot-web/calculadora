@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Calculadora de Taxas e Impostos</title>
+<link rel="icon" type="image/png" href="apple-touch-icon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="Calculadora Corpory">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#4bacce">
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--tx:#1b1f24;--mut:#6a727c;--bd:#e1e4e8;--ac:#0f766e;--acx:#fff;--hl:#e3f4f1;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111418;--card:#1b2026;--tx:#eceff2;--mut:#98a1ab;--bd:#2d343c;--ac:#2dd4bf;--acx:#0b1f1c;--hl:#173a35}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;padding:16px;max-width:720px;margin-inline:auto}
+h1{font-size:20px;margin:0 0 12px}h2{font-size:16px;margin:0 0 10px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px;margin-bottom:14px}
+label,.lb{font-size:13px;color:var(--mut);display:block;margin:10px 0 6px}
+input{width:100%;font-size:18px;padding:10px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx)}
+.row{display:flex;gap:10px}.row>div{flex:1}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font:inherit;font-size:14px;padding:8px 12px;border-radius:999px;border:1px solid var(--bd);background:var(--bg);color:var(--tx);cursor:pointer}
+.chip.on{background:var(--ac);color:var(--acx);border-color:var(--ac);font-weight:600}
+.num .chip{min-width:44px;text-align:center}
+.big{font-size:22px;font-weight:700;color:var(--ac)}
+.kv{display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid var(--bd)}.kv:last-child{border:0}
+.note{font-size:12px;color:var(--mut);margin-top:8px}
+.tw{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:14px;min-width:480px}
+th,td{padding:7px 6px;text-align:right;border-bottom:1px solid var(--bd);white-space:nowrap}th:first-child,td:first-child{text-align:left}
+th{font-size:12px;color:var(--mut);font-weight:600}
+tr.sel td{background:var(--hl);font-weight:600}
+.liq{color:var(--ac);font-weight:700}
+</style>
+</head>
+<body>
+<h1>Calculadora de Taxas e Impostos</h1>
+
+<div class="card">
+  <div class="row">
+    <div><label for="v" style="margin-top:0">Valor bruto (R$)</label><input id="v" type="number" inputmode="decimal" step="0.01" placeholder="0,00"><label for="nv">Valor que quero receber (R$)</label><input id="nv" type="number" inputmode="decimal" step="0.01" placeholder="0,00"></div>
+    <div><label for="imp" style="margin-top:0">Simples Nacional (%)</label><input id="imp" type="number" inputmode="decimal" step="0.01" value="9"></div>
+  </div>
+  <span class="lb">Alíquota (toque para aplicar)</span>
+  <div class="chips" id="aliq"></div>
+  <div class="note">Preencha apenas um dos dois campos. Ao informar o valor que quer receber, o app calcula quanto cobrar (bruto) para sobrar exatamente esse valor depois da taxa do cartão e do imposto.</div>
+</div>
+
+<div class="card">
+  <h2>1) Apenas impostos</h2>
+  <div class="kv"><span>Valor bruto</span><b id="i-b">R$ 0,00</b></div>
+  <div class="kv"><span>Imposto</span><b id="i-i">R$ 0,00</b></div>
+  <div class="kv"><span>Líquido após imposto</span><span class="big" id="i-l">R$ 0,00</span></div>
+</div>
+
+<div class="card">
+  <h2>2) Cartão + impostos</h2>
+  <span class="lb" style="margin-top:0">Modalidade</span>
+  <div class="chips" id="mod"></div>
+  <span class="lb">Bandeira</span>
+  <div class="chips" id="brands"></div>
+  <span class="lb" id="parlb">Parcelas</span>
+  <div class="chips num" id="par"></div>
+
+  <div style="margin-top:14px">
+    <div class="kv"><span>Valor bruto</span><b id="r-b"></b></div>
+    <div class="kv"><span id="r-tl">Taxa do cartão</span><b id="r-t"></b></div>
+    <div class="kv"><span id="r-il">Imposto</span><b id="r-i"></b></div>
+    <div class="kv"><span>Líquido (bruto − taxa − imposto)</span><span class="big" id="r-l"></span></div>
+    <div class="kv"><span>Valor de cada parcela</span><b id="r-p"></b></div>
+  </div>
+  <div class="note">A taxa do cartão e o imposto incidem, cada um, sobre o valor bruto. Um não é descontado antes do outro.</div>
+</div>
+
+<div class="card">
+  <h2>Comparativo por parcelas</h2>
+  <div class="note" id="cmp-t" style="margin:0 0 8px"></div>
+  <div class="tw"><table>
+    <thead><tr><th>Parcelas</th><th>Taxa %</th><th>Cobrar</th><th>Taxa R$</th><th>Imposto R$</th><th>Líquido</th><th>Parcela</th></tr></thead>
+    <tbody id="tb"></tbody>
+  </table></div>
+</div>
+
+<script>
+// Taxas "Retenção do Estab." (%), parcelas 1 a 10 (Saúde Service)
+var DATA={
+  'Pinpad':{
+    brands:['Visa','Mastercard','Redeshop','Diners','Mais!','Sicredi','Cabal','Agiplan','Banescard','CredZ','JCB'],
+    rates:[3.79,5.45,5.99,6.39,6.56,6.99,8.49,8.99,9.59,9.69]
+  },
+  'E-commerce':{
+    brands:['Visa','Mastercard','American Express','Diners','Sorocred','Elo'],
+    rates:[4.79,6.45,6.99,7.39,7.56,7.99,10.49,10.99,11.59,11.69]
+  },
+  'Débito':{
+    brands:['Visa Electron','Maestro','Banescard','Cabal','Elo'],
+    byBrand:{'Visa Electron':0.99,'Maestro':0.99,'Banescard':0.99,'Cabal':0.99,'Elo':1.98},
+    rates:[0.99]
+  }
+};
+var st={mod:'Pinpad',brand:'Visa',n:1};
+var $=function(i){return document.getElementById(i)};
+var brl=function(x){return x.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})};
+var pct=function(x){return x.toFixed(2).replace('.',',')+'%'};
+
+function chips(el,items,cur,cb){
+  el.innerHTML='';
+  items.forEach(function(it){
+    var b=document.createElement('button');b.type='button';
+    b.className='chip'+(String(it)===String(cur)?' on':'');b.textContent=it+(el.id==='par'?'x':'');
+    b.onclick=function(){cb(it)};el.appendChild(b);
+  });
+}
+function render(){
+  var d=DATA[st.mod];
+  if(d.brands.indexOf(st.brand)<0)st.brand=d.brands[0];
+  chips($('mod'),Object.keys(DATA),st.mod,function(m){st.mod=m;render()});
+  chips($('brands'),d.brands,st.brand,function(b){st.brand=b;render()});
+  var deb=!!d.byBrand;if(deb)st.n=1;
+  $('par').style.display=$('parlb').style.display=deb?'none':'';
+  chips($('par'),[1,2,3,4,5,6,7,8,9,10],st.n,function(n){st.n=n;render()});
+  calc();
+}
+function calc(){
+  var imp=(parseFloat($('imp').value)||0)/100,d=DATA[st.mod];
+  var inV=parseFloat($('v').value)||0,inN=parseFloat($('nv').value)||0;
+  var G=function(t){if(mode==='net'){var f=1-t-imp;return f>0?inN/f:0}return inV};
+  var v=G(0);
+  $('i-b').textContent=brl(v);$('i-i').textContent=brl(v*imp);$('i-l').textContent=brl(v*(1-imp));
+  var RT=d.byBrand?[d.byBrand[st.brand]]:d.rates,t=RT[st.n-1]/100;v=G(t);
+  $('r-b').textContent=brl(v);
+  $('r-tl').textContent='Taxa do cartão ('+pct(t*100)+')';
+  $('r-il').textContent='Imposto ('+pct(imp*100)+')';
+  $('r-t').textContent=brl(v*t);$('r-i').textContent=brl(v*imp);
+  $('r-l').textContent=brl(v-v*t-v*imp);
+  $('r-p').textContent=brl(v/st.n);
+  $('cmp-t').textContent=st.mod+' · '+st.brand;
+  var h='';
+  RT.forEach(function(r,k){
+    var tt=r/100,g=G(tt);
+    h+='<tr'+(k+1===st.n?' class="sel"':'')+'><td>'+(d.byBrand?'Débito':(k+1)+'x')+'</td><td>'+pct(r)+'</td><td>'+brl(g)+'</td><td>'+brl(g*tt)+'</td><td>'+brl(g*imp)+'</td><td class="liq">'+brl(g-g*tt-g*imp)+'</td><td>'+brl(g/(k+1))+'</td></tr>';
+  });
+  $('tb').innerHTML=h;
+}
+var ALIQ=[4.5,9,10.2,14,22,33];
+function renderAliq(){
+  var cur=parseFloat($('imp').value),el=$('aliq');el.innerHTML='';
+  ALIQ.forEach(function(a){
+    var b=document.createElement('button');b.type='button';
+    b.className='chip'+(a===cur?' on':'');b.textContent=a.toFixed(1).replace('.',',')+'%';
+    b.onclick=function(){$('imp').value=a;renderAliq();calc()};
+    el.appendChild(b);
+  });
+}
+var mode='gross';
+$('v').addEventListener('input',function(){mode='gross';$('nv').value='';calc()});
+$('nv').addEventListener('input',function(){mode='net';$('v').value='';calc()});
+$('imp').addEventListener('input',function(){renderAliq();calc()});
+renderAliq();
+render();
+</script>
+</body>
+</html>
